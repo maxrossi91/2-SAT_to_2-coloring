@@ -1,0 +1,24 @@
+procedure prepare_G(n,m,a[],b[]) callbacks {
+   procedure size_of_G(nG,mG);
+   procedure add_edge(u,v);
+}
+
+function is_satisfiable(n) callbacks {
+   function is_reachible(u,v);
+}
+
+procedure find_assignment(n,m,a[],b[]) callbacks {
+   function is_reachible(u,v);
+   procedure assign_variable(letteral,value);
+}
+
+main {
+    read n, m;
+    for e to m {
+      read a[e];
+      read b[e];
+    }
+    call prepare_G(n,m,a,b);
+    call is_satisfiable(n);
+    call find_assignment(n,m,a[],b[]);
+}
