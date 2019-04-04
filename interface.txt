@@ -20,5 +20,5 @@ main {
     }
     call prepare_G(n,m,a,b);
     call is_satisfiable(n);
-    call find_assignment(n,m,a[],b[]);
+    call find_assignment(n,m,a,b);
 }
