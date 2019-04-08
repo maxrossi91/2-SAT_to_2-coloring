@@ -1,7 +1,7 @@
 import turingarena as ta
 import networkx as nx
 import random
-import numpy.random as np
+import numpy as np
 
 DEBUG = False
 
@@ -9,282 +9,222 @@ DEBUG = False
 # - is satisfiable
 # - give an assignment
 
-def generate_random_formula(n,m,is_sat):
-    # generate the list of letterals
-    letteral = []
-    for i in range(m):
-        letteral.append(i)
-        # letteral.append(n+i)
+def intersection(a, b):
+    return list(set(a) & set(b))
 
+def generate_random_formula(n,m,is_sat):
+    # generate the list of letteral
+    letteral = range(n)
     random.shuffle(letteral)
-    clausole = []
+    clausole = [[],[]]
     if(is_sat):
         #I have to avoid cycles
         G = nx.DiGraph()
         G.add_nodes_from(range(2*n))
-        while len(clausole) < m:
+        while len(clausole[0]) < m:
             a = random.choice(letteral)
             b = random.choice(letteral)
             while b == a:
                 b = random.choice(letteral)
 
-            a_dir = random.choice(2)
-            b_dir = random.choice(2)
+            a_dir = random.choice(range(2))
+            b_dir = random.choice(range(2))
 
             index_a = a + a_dir*n
             index_b = b + b_dir*n
 
-            index_not_a = (index_a + n)%n
-            index_not_b = (index_b + n)%n
+            index_not_a = (index_a + n)%(2*n)
+            index_not_b = (index_b + n)%(2*n)
 
             G.add_edge(index_not_a,index_b)
             G.add_edge(index_not_b,index_a)
 
-            reachable_from_a = list(nx.dfs_preorder_nodes(G,index_a))
-            reachable_from_not_b = list(nx.dfs_preorder_nodes(G,index_not_b))
+            reachable_from_a = list(nx.dfs_successors(G,index_a))
+            reaches_not_a = list(nx.dfs_predecessors(G,index_not_a))
+            reachable_from_b = list(nx.dfs_successors(G,index_b))
+            reaches_not_b = list(nx.dfs_predecessors(G,index_not_b))
 
-            if index_not_a in reachable_from_a or index_b in reachable_from_not_b:
+            reachable_from_a_not = [(i+n)%(2*n) for i in reachable_from_a]
+            reachable_from_b_not = [(i+n)%(2*n) for i in reachable_from_b]
+
+            connections_not_a_b = intersection(reaches_not_a,reachable_from_b_not)
+            connections_not_b_a = intersection(reaches_not_b,reachable_from_a_not)
+
+            connections_not_b_a_not = [(i+n)%(2*n) for i in connections_not_b_a]
+
+            unsat = intersection(connections_not_a_b,connections_not_b_a_not)
+
+            if len(unsat):
                 G.remove_edge(index_not_a,index_b)
                 G.remove_edge(index_not_b,index_a)
             else:
-                clausole.append([index_a,index_b])
+                clausole[0].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
+                clausole[1].append(((index_b%n) +1)*( -1 if index_b >= n else 1))
+                # clausole.append([index_a,index_b])
+
     else:
         # I have to introduce a cycle
-        cycle_length = random.choice(range(min(n,m)))
-        cycle = np.random.choice(letterals,cycle_length,replace = False)
+        cycle_length = np.random.choice(range(3,min(n,m)),1)
+        path_length = int(cycle_length/2)
+        cycle = np.random.choice(letteral,cycle_length,replace = False)
         directions = np.random.choice(range(2),cycle_length)
-        index = [cycle[i] + directions[i]*n for i in range(cycle_length)]
-        index_not = [(index[i]+n)%n for i in range(cycle_length)]
+        unsat_variable = cycle[path_length]
+        unsat_variable_not = ((unsat_variable + n)% (2*n))
+        forward_path_length = len(range(path_length+1, cycle_length))
+        forward_path = []
+        forward_directions = []
+        forward_index = []
+        forward_index_not = []
+        if forward_path_length:
+          forward_path = [cycle[i] for i in range(path_length+1, cycle_length)]
+          forward_directions = [directions[i] for i in range(path_length+1, cycle_length)]
+          forward_index = [forward_path[i] + forward_directions[i]*n for i in range(forward_path_length)]
+          forward_index_not = [(forward_index[i]+n)%(2*n) for i in range(forward_path_length)]
 
-        
+        backward_path_length = path_length
+        backward_path = [cycle[i] for i in range(path_length)]
+        backward_directions = [directions[i] for i in range(path_length)]
+        backward_index = [backward_path[i] + backward_directions[i]*n for i in range(backward_path_length)]
+        backward_index_not = [(backward_index[i]+n)%(2*n) for i in range(backward_path_length)]
 
-def test_case(n, m):
+        # Unsat cycle from unsat to unsat_not
+        clausole[0].append(((unsat_variable%n) +1)*( -1 if unsat_variable >= n else 1))
+        for i in range(backward_path_length):
+            index_a = backward_index[i]
+            index_a_not = backward_index_not[i]
+            clausole[1].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
+            clausole[0].append(((index_a_not%n) +1)*( -1 if index_a_not >= n else 1))
+
+        clausole[1].append(((unsat_variable_not%n) +1)*( -1 if unsat_variable_not >= n else 1))
+        # Unsat cycle from unsat_not to unsat
+        clausole[0].append(((unsat_variable_not%n) +1)*( -1 if unsat_variable_not >= n else 1))
+        for i in range(forward_path_length):
+            index_a = forward_index[i]
+            index_a_not = forward_index_not[i]
+            clausole[1].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
+            clausole[0].append(((index_a_not%n) +1)*( -1 if index_a_not >= n else 1))
+
+        clausole[1].append(((unsat_variable%n) +1)*( -1 if unsat_variable >= n else 1))
+
+        while len(clausole[0]) < m:
+            letter = np.random.choice(letteral,2,replace = False)
+            dir = np.random.choice(range(2),2)
+            index_a = letter[0] + dir[0]*n
+            index_b = letter[1] + dir[1]*n
+            clausole[0].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
+            clausole[1].append(((index_b%n) +1)*( -1 if index_b >= n else 1))
+
+
+
+    return clausole
+
+
+
+def test_case(n, m, is_sat):
     print(f"\nEvaluating test case: N = {n}, M = {m}...  ")#)\t", end="")
 
     res = 1
 
-    N = n_u
-    M = n_v
-
     # edges density
-    edges = m
-
-    # create random graph
-    G = nx.bipartite.gnmk_random_graph(N, M, edges, seed=0xC0FFEE)
-    # U is 0..N-1, V is N..N+M-1
-    U,V = range(0,N), range(N,N+M)
+    a,b = generate_random_formula(n,m,is_sat)
 
     try:
         with ta.run_algorithm(ta.submission.source, time_limit=0.15) as p:
-            # build the graphs
-            n1 = len(U)
-            n2 = len(V)
-            mG = edges
-
-            u = [ x for x, _ in sorted(G.edges) ]
-            v = [ y for _, y in sorted(G.edges) ]
-
             # initialize the H graph
-            H = nx.DiGraph()
-            H_edges = -1
-            flow_start = None
-            flow_end   = None
+            G = nx.DiGraph()
 
-            def size_of_H(nH,mH):
-                nonlocal H, H_edges
-                if nH < 0:
+            def size_of_G(nG,mG):
+                nonlocal G, G_edges
+                if nG < 0:
                     raise Exception('negative number of nodes')
-                if mH < 0:
+                if mG < 0:
                     raise Exception('negative number of edges')
-                H.add_nodes_from(range(0,nH))
-                H_edges = mH
+                G.add_nodes_from(range(0,nG))
+                G_edges = mG
 
-            def add_edge(u,v,w):
-                nonlocal H, H_edges
-                if len(H.edges) == H_edges:
+            def add_edge(u,v):
+                nonlocal G, G_edges
+                if len(G.edges) == G_edges:
                     raise Exception('too many edges added with add_edge')
-                if not H.has_node(u):
+                if not G.has_node(u):
                     raise Exception('invalid node u={}'.format(u))
-                if not H.has_node(v):
+                if not G.has_node(v):
                     raise Exception('invalid node v={}'.format(v))
-                H.add_edge(u,v, capacity=w)
+                G.add_edge(u,v)
 
-            def set_s(s):
-                nonlocal flow_start
-                flow_start = s
 
-            def set_t(t):
-                nonlocal flow_end
-                flow_end = t
+            # the solution build G
+            p.procedures.prepare_G(n,m,a,b,
+                    callbacks=[
+                        size_of_G,
+                        add_edge
+                        ])
+
+            def is_reachible(u,v):
+                if not G.has_node(u):
+                    raise Exception('invalid node u={}'.format(u))
+                if not G.has_node(v):
+                    raise Exception('invalid node v={}'.format(v))
+                succ_u = list(nx.dfs_successors(G,u))
+                return (v in succ_u)
 
             # the solution build H
-            p.procedures.prepare_H_from_G(n1, n2, mG, u, v,
+            ris = p.procedures.is_satisfiable(n,
                     callbacks=[
-                        size_of_H,
-                        add_edge,
-                        set_s,
-                        set_t
+                        is_reachible
                         ])
 
-            # test that the information provided for H are consistent
-            if flow_start is None:
-                raise Exception('flow start not set (use set_s)')
-            if flow_end is None:
-                raise Exception('flow end not set (use set_t)')
-            if len(H.edges) != H_edges:
-                raise Exception('inconsistent number of edges')
+            if ris != is_sat:
+                if ris:
+                    raise Exception('The formula is satisfiable, but you answere that is not satisfiable')
+                else:
+                    raise Exception('The formula is not satisfiable, but you answere that is satisfiable')
 
-            max_flow, flow = nx.algorithms.flow.maximum_flow(
-                    H, flow_start, flow_end)
+            res *= 2
+            def is_reachible(u,v):
+                if not G.has_node(u):
+                    raise Exception('invalid node u={}'.format(u))
+                if not G.has_node(v):
+                    raise Exception('invalid node v={}'.format(v))
+                succ_u = list(nx.dfs_successors(G,u))
+                return (v in succ_u)
 
-            matching = []
-            cover_on_U = set()
-            cover_on_V = set()
+            assignments = [-1]*(n+1)
+            n_of_assignments = 0
+            def assign_variable(letteral,value):
+                if letteral > n:
+                    raise Exception('invalid letteral {}'.format(letteral))
+                if assignments[letteral] != -1:
+                    raise Exception('multiple assignments for letteral {}'.format(letteral))
+                assignments[letteral] = False if value <= 0 else True
+                n_of_assignments = n_of_assignments + 1
 
-            def put_in_matching(u,v):
-                nonlocal matching
-                matching.append([u,v])
-
-            def put_in_node_cover_on_side_U(u):
-                nonlocal cover_on_U
-                cover_on_U.add(u)
-
-            def put_in_node_cover_on_side_V(v):
-                nonlocal cover_on_V
-                cover_on_V.add(v)
-
-            def flow_val(u,v):
-                nonlocal flow
-                return flow[u][v]
-
-            p.procedures.max_card_matching_and_min_node_cover_in_G(n1,n2,mG,u,v,
+            p.procedures.find_assignment(n, m, a, b,
                     callbacks=[
-                        put_in_matching,
-                        put_in_node_cover_on_side_U,
-                        put_in_node_cover_on_side_V,
-                        flow_val
+                        is_reachible,
+                        assign_variable
                         ])
 
-            print("Evaluating the matching... \t", end="")
+            print("Evaluating the assignments... \t", end="")
 
             try:
-                # check the matching
-                if max_flow != len(matching):
-                    raise Exception('matching is not massimal')
+                # check the assignment
+                if n_of_assignments != n:
+                    raise Exception('you assigned less letterals than those in the formula')
 
-                from_set = set()
-                to_set = set()
-                for u, v in matching:
-                    # is a valid edge
-                    if not G.has_edge(u,v):
-                        raise Exception('({},{}) is not an edge'.format(v,u))
+                result = True;
+                for i in range(m):
+                    letteral_a = abs(a[i])
+                    letteral_b = abs(b[i])
+                    dir_a = False if a[i] < 0 else True
+                    dir_b = False if b[i] < 0 else True
+                    if (assignments[letteral_a] != dir_a and assignments[letteral_b] != dir_b):
+                        raise Exception('the assignment is not a model. The assignments {}={} and {}={}, falsifies the clausole ({} v {})'.format(
+                                letteral_a,dir_a,letteral_b,dir_b,a[i],b[i]))
 
-                    # single matching for every node
-                    if u in from_set:
-                        raise Exception('multiple matching for u={}'.format(u))
-                    from_set.add(u)
-                    if v in to_set:
-                        raise Exception('multiple matching for v={}'.format(v))
-                    to_set.add(v)
-
-                # The matching is correct
-                print("[CORRECT]")
-                res = res * 2
-            except Exception as e:
-                print(f"[WRONG] \t error: {e}")
-
-
-
-
-            print("Evaluating the node cover... \t", end="")
-
-            try:
-                # check the node cover
-                if max_flow != (len(cover_on_U) + len(cover_on_V)):
-                    raise Exception('wrong size of cover, {} vs {}'.format(
-                        max_flow,(len(cover_on_U) + len(cover_on_V))))
-
-                for (x,y) in G.edges:
-                    if not x in cover_on_U and not y in cover_on_V:
-                        raise Exception('edges ({},{}) is not covered'.format(x,y))
-
-                # The node cover is correct
-
+                # The assignement is correct
                 print("[CORRECT]")
                 res = res * 3
-
-            except Exception as e:
-                print(f"[WRONG] \t error: {e}")
-
-            # compute the minimum cut
-
-            min_cut, partition = nx.algorithms.flow.minimum_cut(
-                    H, flow_start, flow_end)
-
-            reachable, non_reachable = partition
-
-            cutset = set()
-            for u, nbrs in ((n, H[n]) for n in reachable):
-                cutset.update((u, v) for v in nbrs if v in non_reachable)
-
-            cutset = [ (x,y) for x,y in cutset ]
-
-            iter_cut_left = 0
-            iter_cut_right = 0
-            cover_on_U = set()
-            cover_on_V = set()
-
-            def put_in_node_cover_on_side_U(u):
-                nonlocal cover_on_U
-                cover_on_U.add(u)
-
-            def put_in_node_cover_on_side_V(v):
-                nonlocal cover_on_V
-                cover_on_V.add(v)
-
-            def min_cut_value():
-                nonlocal min_cut
-                return min_cut
-
-            def next_in_min_cut_left():
-                nonlocal min_cut, iter_cut_left, cutset
-                if iter_cut_left >= min_cut:
-                    raise Exception('cut left has only {} nodes'.format(n1))
-                iter_cut_left+=1
-                return cutset[iter_cut_left-1][0]
-
-            def next_in_min_cut_right():
-                nonlocal min_cut, iter_cut_right, cutset
-                if iter_cut_right >= min_cut:
-                    raise Exception('cut right has only {} nodes'.format(n1))
-                iter_cut_right+=1
-                return cutset[iter_cut_right-1][1]
-
-            p.procedures.min_node_cover_from_min_cut(n1,n2,
-                    callbacks=[
-                        put_in_node_cover_on_side_U,
-                        put_in_node_cover_on_side_V,
-                        min_cut_value,
-                        next_in_min_cut_left,
-                        next_in_min_cut_right
-                        ])
-
-            print("Evaluating the node cover... \t", end="")
-            try:
-                # check the node cover
-                if max_flow != (len(cover_on_U) + len(cover_on_V)):
-                    raise Exception('wrong size of cover, {} vs {}'.format(
-                        max_flow,(len(cover_on_U) + len(cover_on_V))))
-
-                for (x,y) in G.edges:
-                    if not x in cover_on_U and not y in cover_on_V:
-                        raise Exception('edges ({},{}) is not covered'.format(x,y))
-
-                # The node cover is correct
-
-                print("[CORRECT]")
-                res = res * 5
-
             except Exception as e:
                 print(f"[WRONG] \t error: {e}")
 
@@ -293,7 +233,7 @@ def test_case(n, m):
     except Exception as e:
         print(f"[WRONG] \t error: {e}")
 
-    if res == 2*3*5:
+    if res == 2*3:
         print(f"test case: N_U = {n_u}, N_V = {n_u}, M = {m} [PASSED]")
     else:
         print(f"test case: N_U = {n_u}, N_V = {n_u}, M = {m} [FAILED]")
@@ -302,45 +242,35 @@ def test_case(n, m):
 
 
 def main():
-    for n_u,n_v in ((10,5), (15,20), (20,20)):
+    for n in (10, 15, 20):
         for m in (10, 15, 20):
-            ret = test_case(n_u,n_v,m)
-            if ret%5:
-                ta.goals["min_node_cover_from_min_cut"] = False
+            ret = test_case(n,m)
             if ret%3:
-                ta.goals["min_node_cover"] = False
+                ta.goals["model"] = False
             if ret%2:
-                ta.goals["max_card_matching"] = False
-    ta.goals.setdefault("max_card_matching", True)
-    ta.goals.setdefault("min_node_cover", True)
-    ta.goals.setdefault("min_node_cover_from_min_cut", True)
+                ta.goals["decision"] = False
+    ta.goals.setdefault("decision", True)
+    ta.goals.setdefault("model", True)
 
-    for n_u,n_v in ((100,50), (150,200), (200,200)):
+    for n in (100, 150, 200):
         for m in (100, 150, 200):
-            ret = test_case(n_u,n_v,m)
-            if ret%5:
-                ta.goals["min_node_cover_from_min_cut"] = False
+            ret = test_case(n,m)
             if ret%3:
-                ta.goals["min_node_cover"] = False
+                ta.goals["model"] = False
             if ret%2:
-                ta.goals["max_card_matching"] = False
-    ta.goals.setdefault("max_card_matching", True)
-    ta.goals.setdefault("min_node_cover", True)
-    ta.goals.setdefault("min_node_cover_from_min_cut", True)
+                ta.goals["decision"] = False
+    ta.goals.setdefault("decision", True)
+    ta.goals.setdefault("model", True)
 
-    for n_u,n_v in ((1000,500), (1500,2000), (2000,2000)):
+    for n_u,n_v in (1000, 1500, 2000):
         for m in (1000, 1500, 2000):
-            ret = test_case(n_u,n_v,m)
-            if ret%5:
-                ta.goals["min_node_cover_from_min_cut"] = False
+            ret = test_case(n,m)
             if ret%3:
-                ta.goals["min_node_cover"] = False
+                ta.goals["model"] = False
             if ret%2:
-                ta.goals["max_card_matching"] = False
-
-    ta.goals.setdefault("max_card_matching", True)
-    ta.goals.setdefault("min_node_cover", True)
-    ta.goals.setdefault("min_node_cover_from_min_cut", True)
+                ta.goals["decision"] = False
+    ta.goals.setdefault("decision", True)
+    ta.goals.setdefault("model", True)
 
     print(ta.goals)
 
