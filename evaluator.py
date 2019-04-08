@@ -3,7 +3,7 @@ import networkx as nx
 import random
 import numpy as np
 
-DEBUG = False
+DEBUG = True
 
 # Goals:
 # - is satisfiable
@@ -14,7 +14,7 @@ def intersection(a, b):
 
 def generate_random_formula(n,m,is_sat):
     # generate the list of letteral
-    letteral = range(n)
+    letteral = [i for i in range(n)]
     random.shuffle(letteral)
     clausole = [[],[]]
     if(is_sat):
@@ -64,7 +64,7 @@ def generate_random_formula(n,m,is_sat):
 
     else:
         # I have to introduce a cycle
-        cycle_length = np.random.choice(range(3,min(n,m)),1)
+        cycle_length = np.random.choice(range(3,min(n,m)))
         path_length = int(cycle_length/2)
         cycle = np.random.choice(letteral,cycle_length,replace = False)
         directions = np.random.choice(range(2),cycle_length)
@@ -126,12 +126,23 @@ def test_case(n, m, is_sat):
     res = 1
 
     # edges density
-    a,b = generate_random_formula(n,m,is_sat)
+    (a,b) = generate_random_formula(n,m,is_sat)
+
+    if DEBUG:
+        for elem in a:
+            assert elem <= n and elem >= -n and elem != 0
+        for elem in b:
+            assert elem <= n and elem >= -n and elem != 0
+    # for elem in a:
+    #     assert elem <= n and elem >= -n and elem != 0
+    # for elem in b:
+    #     assert elem <= n and elem >= -n and elem != 0
 
     try:
         with ta.run_algorithm(ta.submission.source, time_limit=0.15) as p:
             # initialize the H graph
             G = nx.DiGraph()
+            G_edges = 0
 
             def size_of_G(nG,mG):
                 nonlocal G, G_edges
@@ -147,9 +158,9 @@ def test_case(n, m, is_sat):
                 if len(G.edges) == G_edges:
                     raise Exception('too many edges added with add_edge')
                 if not G.has_node(u):
-                    raise Exception('invalid node u={}'.format(u))
+                    raise Exception('in function add_edge. Invalid node u={}'.format(u))
                 if not G.has_node(v):
-                    raise Exception('invalid node v={}'.format(v))
+                    raise Exception('in function add_edge. Invalid node v={}'.format(v))
                 G.add_edge(u,v)
 
 
@@ -162,38 +173,39 @@ def test_case(n, m, is_sat):
 
             def is_reachible(u,v):
                 if not G.has_node(u):
-                    raise Exception('invalid node u={}'.format(u))
+                    raise Exception('in function is_reachible. Invalid node u={}'.format(u))
                 if not G.has_node(v):
-                    raise Exception('invalid node v={}'.format(v))
+                    raise Exception('in function is_reachible. Invalid node v={}'.format(v))
                 succ_u = list(nx.dfs_successors(G,u))
                 return (v in succ_u)
 
             # the solution build H
-            ris = p.procedures.is_satisfiable(n,
+            ris = p.functions.is_satisfiable(n,
                     callbacks=[
                         is_reachible
                         ])
 
             if ris != is_sat:
                 if ris:
-                    raise Exception('The formula is satisfiable, but you answere that is not satisfiable')
+                    raise Exception('The formula is satisfiable, but you claim that is not satisfiable')
                 else:
-                    raise Exception('The formula is not satisfiable, but you answere that is satisfiable')
+                    raise Exception('The formula is not satisfiable, but you claim that is satisfiable')
 
             res *= 2
             def is_reachible(u,v):
                 if not G.has_node(u):
-                    raise Exception('invalid node u={}'.format(u))
+                    raise Exception('in function is_reachible. Invalid node u={}'.format(u))
                 if not G.has_node(v):
-                    raise Exception('invalid node v={}'.format(v))
+                    raise Exception('in function is_reachible. Invalid node v={}'.format(v))
                 succ_u = list(nx.dfs_successors(G,u))
                 return (v in succ_u)
 
             assignments = [-1]*(n+1)
             n_of_assignments = 0
             def assign_variable(letteral,value):
+                nonlocal n_of_assignments
                 if letteral > n:
-                    raise Exception('invalid letteral {}'.format(letteral))
+                    raise Exception('in function assign_variable. Invalid letteral {}'.format(letteral))
                 if assignments[letteral] != -1:
                     raise Exception('multiple assignments for letteral {}'.format(letteral))
                 assignments[letteral] = False if value <= 0 else True
@@ -220,7 +232,7 @@ def test_case(n, m, is_sat):
                     dir_b = False if b[i] < 0 else True
                     if (assignments[letteral_a] != dir_a and assignments[letteral_b] != dir_b):
                         raise Exception('the assignment is not a model. The assignments {}={} and {}={}, falsifies the clausole ({} v {})'.format(
-                                letteral_a,dir_a,letteral_b,dir_b,a[i],b[i]))
+                                letteral_a,assignments[letteral_a],letteral_b,assignments[letteral_b],a[i],b[i]))
 
                 # The assignement is correct
                 print("[CORRECT]")
@@ -234,9 +246,9 @@ def test_case(n, m, is_sat):
         print(f"[WRONG] \t error: {e}")
 
     if res == 2*3:
-        print(f"test case: N_U = {n_u}, N_V = {n_u}, M = {m} [PASSED]")
+        print(f"test case: N = {n}, M = {m} [PASSED]")
     else:
-        print(f"test case: N_U = {n_u}, N_V = {n_u}, M = {m} [FAILED]")
+        print(f"test case: N = {n}, M = {m} [FAILED]")
 
     return res
 
@@ -244,7 +256,8 @@ def test_case(n, m, is_sat):
 def main():
     for n in (10, 15, 20):
         for m in (10, 15, 20):
-            ret = test_case(n,m)
+            is_sat = random.choice([True,False])
+            ret = test_case(n,m,is_sat)
             if ret%3:
                 ta.goals["model"] = False
             if ret%2:
@@ -254,7 +267,8 @@ def main():
 
     for n in (100, 150, 200):
         for m in (100, 150, 200):
-            ret = test_case(n,m)
+            is_sat = random.choice([True,False])
+            ret = test_case(n,m,is_sat)
             if ret%3:
                 ta.goals["model"] = False
             if ret%2:
@@ -262,9 +276,10 @@ def main():
     ta.goals.setdefault("decision", True)
     ta.goals.setdefault("model", True)
 
-    for n_u,n_v in (1000, 1500, 2000):
+    for n in (1000, 1500, 2000):
         for m in (1000, 1500, 2000):
-            ret = test_case(n,m)
+            is_sat = random.choice([True,False])
+            ret = test_case(n,m,is_sat)
             if ret%3:
                 ta.goals["model"] = False
             if ret%2:
