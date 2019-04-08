@@ -1,0 +1,15 @@
+[problem]
+title = "Data un’istanza di 2-SAT si vuole trovare un’assegnamento delle variabili che soddisfa la formula. Per fare questo si può utilizzare il problema di reachibility di un grafo, come oracolo."
+
+[parameters]
+N = 2000
+M = 2000
+
+[scoring]
+goals = [
+    "model",
+    "decision"
+    ]
+
+[files]
+public_paths = ["interface.txt", "evaluator.py"]
