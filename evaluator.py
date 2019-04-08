@@ -19,48 +19,56 @@ def generate_random_formula(n,m,is_sat):
     clausole = [[],[]]
     if(is_sat):
         #I have to avoid cycles
-        G = nx.DiGraph()
-        G.add_nodes_from(range(2*n))
+        # G = nx.DiGraph()
+        # G.add_nodes_from(range(2*n))
+        assignment = np.random.choice([-1,1],n)
         while len(clausole[0]) < m:
-            a = random.choice(letteral)
-            b = random.choice(letteral)
-            while b == a:
-                b = random.choice(letteral)
-
-            a_dir = random.choice(range(2))
-            b_dir = random.choice(range(2))
-
-            index_a = a + a_dir*n
-            index_b = b + b_dir*n
-
-            index_not_a = (index_a + n)%(2*n)
-            index_not_b = (index_b + n)%(2*n)
-
-            G.add_edge(index_not_a,index_b)
-            G.add_edge(index_not_b,index_a)
-
-            reachable_from_a = list(nx.dfs_successors(G,index_a))
-            reaches_not_a = list(nx.dfs_predecessors(G,index_not_a))
-            reachable_from_b = list(nx.dfs_successors(G,index_b))
-            reaches_not_b = list(nx.dfs_predecessors(G,index_not_b))
-
-            reachable_from_a_not = [(i+n)%(2*n) for i in reachable_from_a]
-            reachable_from_b_not = [(i+n)%(2*n) for i in reachable_from_b]
-
-            connections_not_a_b = intersection(reaches_not_a,reachable_from_b_not)
-            connections_not_b_a = intersection(reaches_not_b,reachable_from_a_not)
-
-            connections_not_b_a_not = [(i+n)%(2*n) for i in connections_not_b_a]
-
-            unsat = intersection(connections_not_a_b,connections_not_b_a_not)
-
-            if len(unsat):
-                G.remove_edge(index_not_a,index_b)
-                G.remove_edge(index_not_b,index_a)
-            else:
-                clausole[0].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
-                clausole[1].append(((index_b%n) +1)*( -1 if index_b >= n else 1))
-                # clausole.append([index_a,index_b])
+            clausola = np.random.choice(letteral,2,replace=False)
+            (correct,other) = np.random.choice([0,1],2,replace=False)
+            other_dir = np.random.choice([-1,1])
+            clausola[correct] = assignment[clausola[correct]] * (clausola[correct]+1)
+            clausola[other] = other_dir * (clausola[other]+1)
+            clausole[0].append(clausola[0])
+            clausole[1].append(clausola[1])
+            # a = random.choice(letteral)
+            # b = random.choice(letteral)
+            # while b == a:
+            #     b = random.choice(letteral)
+            #
+            # a_dir = random.choice(range(2))
+            # b_dir = random.choice(range(2))
+            #
+            # index_a = a + a_dir*n
+            # index_b = b + b_dir*n
+            #
+            # index_not_a = (index_a + n)%(2*n)
+            # index_not_b = (index_b + n)%(2*n)
+            #
+            # G.add_edge(index_not_a,index_b)
+            # G.add_edge(index_not_b,index_a)
+            #
+            # reachable_from_a = list(nx.dfs_successors(G,index_a))
+            # reaches_not_a = list(nx.dfs_predecessors(G,index_not_a))
+            # reachable_from_b = list(nx.dfs_successors(G,index_b))
+            # reaches_not_b = list(nx.dfs_predecessors(G,index_not_b))
+            #
+            # reachable_from_a_not = [(i+n)%(2*n) for i in reachable_from_a]
+            # reachable_from_b_not = [(i+n)%(2*n) for i in reachable_from_b]
+            #
+            # connections_not_a_b = intersection(reaches_not_a,reachable_from_b_not)
+            # connections_not_b_a = intersection(reaches_not_b,reachable_from_a_not)
+            #
+            # connections_not_b_a_not = [(i+n)%(2*n) for i in connections_not_b_a]
+            #
+            # unsat = intersection(connections_not_a_b,connections_not_b_a_not)
+            #
+            # if len(unsat):
+            #     G.remove_edge(index_not_a,index_b)
+            #     G.remove_edge(index_not_b,index_a)
+            # else:
+            #     clausole[0].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
+            #     clausole[1].append(((index_b%n) +1)*( -1 if index_b >= n else 1))
+            #     # clausole.append([index_a,index_b])
 
     else:
         # I have to introduce a cycle
