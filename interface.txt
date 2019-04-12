@@ -3,12 +3,7 @@ procedure prepare_G(n,m,a[],b[]) callbacks {
    procedure add_edge(u,v);
 }
 
-function is_satisfiable(n) callbacks {
-   function is_reachible(u,v);
-}
-
-procedure find_assignment(n,m,a[],b[]) callbacks {
-   function is_reachible(u,v);
+function is_satisfiable(nG, components[]) callbacks {
    procedure assign_variable(letteral,value);
 }
 
@@ -19,7 +14,12 @@ main {
       read b[e];
     }
     call prepare_G(n,m,a,b);
-    call decision = is_satisfiable(n);
+
+    read nG;
+    for i to nG {
+      read components[i];
+    }
+    call decision = is_satisfiable(nG,components);
     write decision;
-    call find_assignment(n,m,a,b);
 }
+

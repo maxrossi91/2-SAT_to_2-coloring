@@ -1,150 +1,81 @@
 import turingarena as ta
 import networkx as nx
+import networkx.algorithms.components as nx_comp
 import random
 import numpy as np
+from random import choice
 
 DEBUG = True
 
-# Goals:
-# - is satisfiable
-# - give an assignment
-
-def intersection(a, b):
-    return list(set(a) & set(b))
-
 def generate_random_formula(n,m,is_sat):
     # generate the list of letteral
-    letteral = [i for i in range(n)]
-    random.shuffle(letteral)
     clausole = [[],[]]
     if(is_sat):
-        #I have to avoid cycles
-        # G = nx.DiGraph()
-        # G.add_nodes_from(range(2*n))
+        litterals = [i for i in range(n)]
         assignment = np.random.choice([-1,1],n)
         while len(clausole[0]) < m:
-            clausola = np.random.choice(letteral,2,replace=False)
+            clausola = np.random.choice(litterals,2,replace=False)
             (correct,other) = np.random.choice([0,1],2,replace=False)
             other_dir = np.random.choice([-1,1])
             clausola[correct] = assignment[clausola[correct]] * (clausola[correct]+1)
             clausola[other] = other_dir * (clausola[other]+1)
             clausole[0].append(clausola[0])
             clausole[1].append(clausola[1])
-            # a = random.choice(letteral)
-            # b = random.choice(letteral)
-            # while b == a:
-            #     b = random.choice(letteral)
-            #
-            # a_dir = random.choice(range(2))
-            # b_dir = random.choice(range(2))
-            #
-            # index_a = a + a_dir*n
-            # index_b = b + b_dir*n
-            #
-            # index_not_a = (index_a + n)%(2*n)
-            # index_not_b = (index_b + n)%(2*n)
-            #
-            # G.add_edge(index_not_a,index_b)
-            # G.add_edge(index_not_b,index_a)
-            #
-            # reachable_from_a = list(nx.dfs_successors(G,index_a))
-            # reaches_not_a = list(nx.dfs_predecessors(G,index_not_a))
-            # reachable_from_b = list(nx.dfs_successors(G,index_b))
-            # reaches_not_b = list(nx.dfs_predecessors(G,index_not_b))
-            #
-            # reachable_from_a_not = [(i+n)%(2*n) for i in reachable_from_a]
-            # reachable_from_b_not = [(i+n)%(2*n) for i in reachable_from_b]
-            #
-            # connections_not_a_b = intersection(reaches_not_a,reachable_from_b_not)
-            # connections_not_b_a = intersection(reaches_not_b,reachable_from_a_not)
-            #
-            # connections_not_b_a_not = [(i+n)%(2*n) for i in connections_not_b_a]
-            #
-            # unsat = intersection(connections_not_a_b,connections_not_b_a_not)
-            #
-            # if len(unsat):
-            #     G.remove_edge(index_not_a,index_b)
-            #     G.remove_edge(index_not_b,index_a)
-            # else:
-            #     clausole[0].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
-            #     clausole[1].append(((index_b%n) +1)*( -1 if index_b >= n else 1))
-            #     # clausole.append([index_a,index_b])
 
     else:
-        # I have to introduce a cycle
-        cycle_length = np.random.choice(range(3,min(n,m)))
-        path_length = int(cycle_length/2)
-        cycle = np.random.choice(letteral,cycle_length,replace = False)
-        directions = np.random.choice(range(2),cycle_length)
-        unsat_variable = cycle[path_length]
-        unsat_variable_not = ((unsat_variable + n)% (2*n))
-        forward_path_length = len(range(path_length+1, cycle_length))
-        forward_path = []
-        forward_directions = []
-        forward_index = []
-        forward_index_not = []
-        if forward_path_length:
-          forward_path = [cycle[i] for i in range(path_length+1, cycle_length)]
-          forward_directions = [directions[i] for i in range(path_length+1, cycle_length)]
-          forward_index = [forward_path[i] + forward_directions[i]*n for i in range(forward_path_length)]
-          forward_index_not = [(forward_index[i]+n)%(2*n) for i in range(forward_path_length)]
+        litterals = []
+        for i in range(1, n+1):
+            litterals.append(i)
+            litterals.append(-i)
 
-        backward_path_length = path_length
-        backward_path = [cycle[i] for i in range(path_length)]
-        backward_directions = [directions[i] for i in range(path_length)]
-        backward_index = [backward_path[i] + backward_directions[i]*n for i in range(backward_path_length)]
-        backward_index_not = [(backward_index[i]+n)%(2*n) for i in range(backward_path_length)]
+        # litteral that can not be True nor False
+        unsat_lit = np.random.choice(range(1,n+1))
 
-        # Unsat cycle from unsat to unsat_not
-        clausole[0].append(((unsat_variable%n) +1)*( -1 if unsat_variable >= n else 1))
-        for i in range(backward_path_length):
-            index_a = backward_index[i]
-            index_a_not = backward_index_not[i]
-            clausole[1].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
-            clausole[0].append(((index_a_not%n) +1)*( -1 if index_a_not >= n else 1))
+        # build a cycle
+        cycle_length = np.random.choice(range(1,m-1))
+        first_half   = np.random.choice(range(cycle_length))
 
-        clausole[1].append(((unsat_variable_not%n) +1)*( -1 if unsat_variable_not >= n else 1))
-        # Unsat cycle from unsat_not to unsat
-        clausole[0].append(((unsat_variable_not%n) +1)*( -1 if unsat_variable_not >= n else 1))
-        for i in range(forward_path_length):
-            index_a = forward_index[i]
-            index_a_not = forward_index_not[i]
-            clausole[1].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
-            clausole[0].append(((index_a_not%n) +1)*( -1 if index_a_not >= n else 1))
+        # assuming unsat_lit = True deduce unsat_lit = False
+        lit = -unsat_lit # False in the assumption
+        for i in range(first_half):
+            # propagate
+            clausole[0].append(lit)
+            other = np.random.choice(litterals)
+            clausole[1].append(other)
+            lit = -other
+        # deduce contradiction
+        clausole[0].append(lit)
+        clausole[1].append(-unsat_lit)
 
-        clausole[1].append(((unsat_variable%n) +1)*( -1 if unsat_variable >= n else 1))
+        # assuming unsat_lit = False deduce unsat_lit = True
+        lit = unsat_lit # False in the assumption
+        for i in range(first_half,cycle_length):
+            # propagate
+            clausole[0].append(lit)
+            other = np.random.choice(litterals)
+            clausole[1].append(other)
+            lit = -other
+        # deduce contradiction
+        clausole[0].append(lit)
+        clausole[1].append(unsat_lit)
 
-        while len(clausole[0]) < m:
-            letter = np.random.choice(letteral,2,replace = False)
-            dir = np.random.choice(range(2),2)
-            index_a = letter[0] + dir[0]*n
-            index_b = letter[1] + dir[1]*n
-            clausole[0].append(((index_a%n) +1)*( -1 if index_a >= n else 1))
-            clausole[1].append(((index_b%n) +1)*( -1 if index_b >= n else 1))
+        # randomly fill the rest (already set cycle_length + 2)
+        for i in range(cycle_length+2,m):
+            clausole[0].append(np.random.choice(litterals))
+            clausole[1].append(np.random.choice(litterals))
 
-
+        assert(len(clausole[0]) == m)
+        assert(len(clausole[1]) == m)
 
     return clausole
 
-
-
 def test_case(n, m, is_sat):
-    print(f"\nEvaluating test case: N = {n}, M = {m}...  ")#)\t", end="")
+    print(f"\nEvaluating test case: N = {n}, M = {m} SAT={is_sat}...  ")
 
     res = 1
 
     # edges density
     (a,b) = generate_random_formula(n,m,is_sat)
-
-    if DEBUG:
-        for elem in a:
-            assert elem <= n and elem >= -n and elem != 0
-        for elem in b:
-            assert elem <= n and elem >= -n and elem != 0
-    # for elem in a:
-    #     assert elem <= n and elem >= -n and elem != 0
-    # for elem in b:
-    #     assert elem <= n and elem >= -n and elem != 0
 
     try:
         with ta.run_algorithm(ta.submission.source, time_limit=0.15) as p:
@@ -165,12 +96,17 @@ def test_case(n, m, is_sat):
                 nonlocal G, G_edges
                 if len(G.edges) == G_edges:
                     raise Exception('too many edges added with add_edge')
+
                 if not G.has_node(u):
-                    raise Exception('in function add_edge. Invalid node u={}'.format(u))
+                    raise Exception(
+                            'in function add_edge. Invalid node u={}'.format(u))
                 if not G.has_node(v):
-                    raise Exception('in function add_edge. Invalid node v={}'.format(v))
+                    raise Exception(
+                            'in function add_edge. Invalid node v={}'.format(v))
                 G.add_edge(u,v)
 
+
+            print("Evaluating the satisfiability... ", end="")
 
             # the solution build G
             p.procedures.prepare_G(n,m,a,b,
@@ -179,39 +115,11 @@ def test_case(n, m, is_sat):
                         add_edge
                         ])
 
-            def is_reachible(u,v):
-                if not G.has_node(u):
-                    raise Exception('in function is_reachible. Invalid node u={}'.format(u))
-                if not G.has_node(v):
-                    raise Exception('in function is_reachible. Invalid node v={}'.format(v))
-                succ_u = list(nx.dfs_successors(G,u))
-                return (v in succ_u)
-
-            # the solution build H
-            ris = p.functions.is_satisfiable(n,
-                    callbacks=[
-                        is_reachible
-                        ])
-
-            if ris != is_sat:
-                if ris:
-                    raise Exception('The formula is satisfiable, but you claim that is not satisfiable')
-                else:
-                    raise Exception('The formula is not satisfiable, but you claim that is satisfiable')
-
-            res *= 2
-            def is_reachible(u,v):
-                if not G.has_node(u):
-                    raise Exception('in function is_reachible. Invalid node u={}'.format(u))
-                if not G.has_node(v):
-                    raise Exception('in function is_reachible. Invalid node v={}'.format(v))
-                succ_u = list(nx.dfs_successors(G,u))
-                return (v in succ_u)
-
             assignments = [-1]*(n+1)
             n_of_assignments = 0
+
             def assign_variable(letteral,value):
-                nonlocal n_of_assignments
+                nonlocal n, n_of_assignments, assignments
                 if letteral > n:
                     raise Exception('in function assign_variable. Invalid letteral {}'.format(letteral))
                 if assignments[letteral] != -1:
@@ -219,14 +127,45 @@ def test_case(n, m, is_sat):
                 assignments[letteral] = False if value <= 0 else True
                 n_of_assignments = n_of_assignments + 1
 
-            p.procedures.find_assignment(n, m, a, b,
+
+            nG = len(G)
+            components = [-1] * nG
+            comp = 0
+
+            # generate strongly connected components in reverse topological order
+            scc = nx_comp.strongly_connected_components_recursive(G)
+            # assigns components in topologigical order
+            for C in reversed(list(scc)):
+                for node in C:
+                    components[node] = comp
+                comp += 1
+
+            ris = p.functions.is_satisfiable(nG,components,
                     callbacks=[
-                        is_reachible,
                         assign_variable
                         ])
 
-            print("Evaluating the assignments... \t", end="")
+            if ris <= 0:
+                ris = False
+            else:
+                ris = True
 
+            if ris != is_sat:
+                print("[WRONG]")
+                if ris:
+                    raise Exception('The formula is unsatisfiable, but you claim that is satisfiable')
+                else:
+                    raise Exception('The formula is satisfiable, but you claim that is not satisfiable')
+
+            print("[CORRECT]")
+
+            res *= 2
+
+            # nothing to do for unsat instances
+            if not is_sat:
+                return res
+
+            print("Evaluating the assignments... \t", end="")
             try:
                 # check the assignment
                 if n_of_assignments != n:
@@ -248,8 +187,6 @@ def test_case(n, m, is_sat):
             except Exception as e:
                 print(f"[WRONG] \t error: {e}")
 
-        if DEBUG:
-            print(f"Time usage: {p.time_usage}")
     except Exception as e:
         print(f"[WRONG] \t error: {e}")
 
@@ -266,10 +203,11 @@ def main():
         for m in (10, 15, 20):
             is_sat = random.choice([True,False])
             ret = test_case(n,m,is_sat)
-            if ret%3:
+            if is_sat and ret%3:
                 ta.goals["model"] = False
             if ret%2:
                 ta.goals["decision"] = False
+
     ta.goals.setdefault("decision", True)
     ta.goals.setdefault("model", True)
 
@@ -277,7 +215,7 @@ def main():
         for m in (100, 150, 200):
             is_sat = random.choice([True,False])
             ret = test_case(n,m,is_sat)
-            if ret%3:
+            if is_sat and ret%3:
                 ta.goals["model"] = False
             if ret%2:
                 ta.goals["decision"] = False
@@ -288,7 +226,7 @@ def main():
         for m in (1000, 1500, 2000):
             is_sat = random.choice([True,False])
             ret = test_case(n,m,is_sat)
-            if ret%3:
+            if is_sat and ret%3:
                 ta.goals["model"] = False
             if ret%2:
                 ta.goals["decision"] = False
